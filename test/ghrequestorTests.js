@@ -103,7 +103,8 @@ describe('Request retry and success', () => {
     });
   });
 
-  it('should retry network errors and eventually fail', () => {
+
+    it('should not retry errors without response', () => {
     const responses = [
       createErrorResponse('bummer'),
       createErrorResponse('bummer'),
@@ -117,7 +118,7 @@ describe('Request retry and success', () => {
     }, err => {
       expect(err).to.equal('bummer');
       const activity = requestor.activity[0];
-      expect(activity.attempts).to.equal(5);
+      expect(activity.attempts).to.be.null;
       expect(activity.delays[0].retry).to.equal(requestor.options.retryDelay);
     });
   });
@@ -236,7 +237,7 @@ function initializeRequestHook(responseList, requestTracker = null) {
     // callback(result.error, result.response, result.response.body);
     setTimeout(() => {
       result = responses.shift();
-      callback(result.error, result.response, result.response.body);
+      callback(result.error, result.response, result.response ? result.response.body : undefined);
     }, 0);
   };
   request.Request.request = hook;
@@ -272,10 +273,7 @@ function createMultiPageResponse(target, body, previous, next, last, code = 200,
 
 function createErrorResponse(error) {
   return {
-    error: error,
-    response: {
-      headers: {}
-    }
+    error: error
   };
 }
 
