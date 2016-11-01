@@ -18,6 +18,14 @@
   ],
   "author": "Jeff McAffer <jmcaffer@microsoft.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/microsoft/ghrequestor.git"
+  },
+  "homepage": "https://github.com/microsoft/ghrequestor#readme",
+  "bugs": {
+    "url": "https://github.com/microsoft/ghrequestor"
+  },
   "files": [
     "index.js",
     "lib/ghrequestor.js"
