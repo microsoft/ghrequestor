@@ -25,7 +25,7 @@ describe('Request option merging', () => {
       }
     });
     expect(result.options.headers['User-Agent']).to.equal('test agent');
-    expect(result.options.headers['authorization']).to.equal('test auth');
+    expect(result.options.headers.authorization).to.equal('test auth');
   });
 });
 
@@ -247,7 +247,6 @@ function initializeRequestHook(responseList, requestTracker = null) {
 
 function createSingleResponse(body, code = 200, remaining = 4000) {
   return {
-    // error: null,
     response: {
       status: code,
       headers: {
@@ -255,7 +254,7 @@ function createSingleResponse(body, code = 200, remaining = 4000) {
       },
       body: body
     }
-  }
+  };
 }
 
 function createMultiPageResponse(target, body, previous, next, last, code = 200, error = null, remaining = 4000, reset = null) {
@@ -285,5 +284,5 @@ function createLinkHeader(target, previous, next, last) {
   const prevLink = previous ? `<${urlHost}/${target}${separator}page=${previous}>; rel="prev"` : null;
   const nextLink = next ? `<${urlHost}/${target}${separator}page=${next}>; rel="next"` : null;
   const lastLink = last ? `<${urlHost}/${target}${separator}page=${last}>; rel="last"` : null;
-  return [firstLink, prevLink, nextLink, lastLink].filter(value => { return value !== null }).join(',');
+  return [firstLink, prevLink, nextLink, lastLink].filter(value => { return value !== null; }).join(',');
 }
