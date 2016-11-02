@@ -81,7 +81,9 @@ describe('Request retry and success', () => {
       // TODO what should be the right return value from a 500?
       // The body of the response or the response itself?
       expect(err.response).to.not.be.null;
+      expect(err.message).to.equal('Non-2** response received');
       expect(err.response.body).to.equal('bummer');
+      expect(err.response.status).to.equal(500);
       const activity = requestor.activity[0];
       expect(activity.attempts).to.equal(requestor.options.maxAttempts);
       expect(activity.delays[0].retry).to.equal(requestor.options.retryDelay);
@@ -117,7 +119,7 @@ describe('Request retry and success', () => {
     return requestor.getAll(`${urlHost}/networkError`).then(result => {
       assert.fail();
     }, err => {
-      expect(err.error).to.equal('bummer');
+      expect(err.message).to.equal('bummer');
       const activity = requestor.activity[0];
       expect(activity.attempts).to.be.null;
       expect(activity.delays[0].retry).to.equal(requestor.options.retryDelay);
@@ -235,7 +237,6 @@ function initializeRequestHook(responseList, requestTracker = null) {
     }
 
     // finish the call in a timeout to simulate the network call context switch
-    // callback(result.error, result.response, result.response.body);
     setTimeout(() => {
       result = responses.shift();
       callback(result.error, result.response, result.response ? result.response.body : undefined);
@@ -274,7 +275,7 @@ function createMultiPageResponse(target, body, previous, next, last, code = 200,
 
 function createErrorResponse(error) {
   return {
-    error: error
+    error: new Error(error)
   };
 }
 
@@ -286,4 +287,3 @@ function createLinkHeader(target, previous, next, last) {
   const lastLink = last ? `<${urlHost}/${target}${separator}page=${last}>; rel="last"` : null;
   return [firstLink, prevLink, nextLink, lastLink].filter(value => { return value !== null }).join(',');
 }
-
