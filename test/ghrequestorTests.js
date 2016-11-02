@@ -25,7 +25,7 @@ describe('Request option merging', () => {
       }
     });
     expect(result.options.headers['User-Agent']).to.equal('test agent');
-    expect(result.options.headers['authorization']).to.equal('test auth');
+    expect(result.options.headers.authorization).to.equal('test auth');
   });
 });
 
@@ -33,7 +33,8 @@ describe('Request retry and success', () => {
   it('should be able to get a single page resource', () => {
     const responses = [createSingleResponse({ id: 'cool object' })];
     const requestor = createRequestor(responses);
-    requestor.get(`${urlHost}/singlePageResource`).then(result => {
+    requestor.get(`${urlHost}/singlePageResource`).then(response => {
+      const result = response.body;
       expect(result.id).to.equal('cool object');
       const activity = requestor.activity[0];
       expect(activity.attempts).to.equal(1);
@@ -75,14 +76,17 @@ describe('Request retry and success', () => {
     ];
     const requestor = createRequestor(responses);
     return requestor.getAll(`${urlHost}/serverError`).then(result => {
+      assert.fail();
+    }, err => {
       // TODO what should be the right return value from a 500?
       // The body of the response or the response itself?
-      expect(result).to.equal('bummer');
+      expect(err.response).to.not.be.null;
+      expect(err.message).to.equal('Non-2** response received');
+      expect(err.response.body).to.equal('bummer');
+      expect(err.response.status).to.equal(500);
       const activity = requestor.activity[0];
       expect(activity.attempts).to.equal(requestor.options.maxAttempts);
       expect(activity.delays[0].retry).to.equal(requestor.options.retryDelay);
-    }, err => {
-      assert.fail();
     });
   });
 
@@ -103,8 +107,7 @@ describe('Request retry and success', () => {
     });
   });
 
-
-    it('should not retry errors without response', () => {
+  it('should not retry errors without response', () => {
     const responses = [
       createErrorResponse('bummer'),
       createErrorResponse('bummer'),
@@ -116,7 +119,7 @@ describe('Request retry and success', () => {
     return requestor.getAll(`${urlHost}/networkError`).then(result => {
       assert.fail();
     }, err => {
-      expect(err).to.equal('bummer');
+      expect(err.message).to.equal('bummer');
       const activity = requestor.activity[0];
       expect(activity.attempts).to.be.null;
       expect(activity.delays[0].retry).to.equal(requestor.options.retryDelay);
@@ -234,7 +237,6 @@ function initializeRequestHook(responseList, requestTracker = null) {
     }
 
     // finish the call in a timeout to simulate the network call context switch
-    // callback(result.error, result.response, result.response.body);
     setTimeout(() => {
       result = responses.shift();
       callback(result.error, result.response, result.response ? result.response.body : undefined);
@@ -245,7 +247,6 @@ function initializeRequestHook(responseList, requestTracker = null) {
 
 function createSingleResponse(body, code = 200, remaining = 4000) {
   return {
-    // error: null,
     response: {
       status: code,
       headers: {
@@ -253,7 +254,7 @@ function createSingleResponse(body, code = 200, remaining = 4000) {
       },
       body: body
     }
-  }
+  };
 }
 
 function createMultiPageResponse(target, body, previous, next, last, code = 200, error = null, remaining = 4000, reset = null) {
@@ -273,7 +274,7 @@ function createMultiPageResponse(target, body, previous, next, last, code = 200,
 
 function createErrorResponse(error) {
   return {
-    error: error
+    error: new Error(error)
   };
 }
 
@@ -283,6 +284,5 @@ function createLinkHeader(target, previous, next, last) {
   const prevLink = previous ? `<${urlHost}/${target}${separator}page=${previous}>; rel="prev"` : null;
   const nextLink = next ? `<${urlHost}/${target}${separator}page=${next}>; rel="next"` : null;
   const lastLink = last ? `<${urlHost}/${target}${separator}page=${last}>; rel="last"` : null;
-  return [firstLink, prevLink, nextLink, lastLink].filter(value => { return value !== null }).join(',');
+  return [firstLink, prevLink, nextLink, lastLink].filter(value => { return value !== null; }).join(',');
 }
-
