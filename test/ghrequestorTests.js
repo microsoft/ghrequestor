@@ -83,7 +83,7 @@ describe('Request retry and success', () => {
       expect(err.response).to.not.be.null;
       expect(err.message).to.equal('Non-2** response received');
       expect(err.response.body).to.equal('bummer');
-      expect(err.response.status).to.equal(500);
+      expect(err.response.statusCode).to.equal(500);
       const activity = requestor.activity[0];
       expect(activity.attempts).to.equal(requestor.options.maxAttempts);
       expect(activity.delays[0].retry).to.equal(requestor.options.retryDelay);
@@ -248,7 +248,7 @@ function initializeRequestHook(responseList, requestTracker = null) {
 function createSingleResponse(body, code = 200, remaining = 4000) {
   return {
     response: {
-      status: code,
+      statusCode: code,
       headers: {
         'x-ratelimit-remaining': remaining
       },
@@ -266,7 +266,7 @@ function createMultiPageResponse(target, body, previous, next, last, code = 200,
         'x-ratelimit-reset': reset ? reset : 0,
         link: createLinkHeader(target, previous, next, last)
       },
-      status: code,
+      statusCode: code,
       body: body
     }
   };
