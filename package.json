@@ -1,6 +1,6 @@
 {
   "name": "ghrequestor",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A simple, resilient GitHub API client for bulk retrieval of GitHub resources",
   "main": "./lib/ghrequestor.js",
   "bin": {
