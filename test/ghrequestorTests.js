@@ -3,31 +3,32 @@ const chai = require('chai');
 const expect = require('chai').expect;
 const extend = require('extend');
 const requestor = require('../lib/ghrequestor.js');
+const client = require('../lib/requestClient.js');
 const request = require('requestretry');
 
 const urlHost = 'https://test.com';
 
-// describe('Request option merging', () => {
-//   it('should merge and override properties', () => {
-//     const result = new requestor({
-//       retryDelay: 10,
-//       testProperty: 'test value'
-//     });
-//     expect(result.options.retryDelay).to.equal(10);
-//     expect(result.options.testProperty).to.equal('test value');
-//   });
+describe('Request option merging', () => {
+  it('should merge and override properties', () => {
+    const result = new client({
+      retryDelay: 10,
+      testProperty: 'test value'
+    });
+    expect(result.options.retryDelay).to.equal(10);
+    expect(result.options.testProperty).to.equal('test value');
+  });
 
-//   it('should merge and override headers', () => {
-//     const result = new requestor({
-//       headers: {
-//         'User-Agent': 'test agent',
-//         authorization: 'test auth'
-//       }
-//     });
-//     expect(result.options.headers['User-Agent']).to.equal('test agent');
-//     expect(result.options.headers.authorization).to.equal('test auth');
-//   });
-// });
+  it('should merge and override headers', () => {
+    const result = new client({
+      headers: {
+        'User-Agent': 'test agent',
+        authorization: 'test auth'
+      }
+    });
+    expect(result.options.headers['User-Agent']).to.equal('test agent');
+    expect(result.options.headers.authorization).to.equal('test auth');
+  });
+});
 
 describe('Request retry and success', () => {
   it('should be able to get a single page resource', () => {
