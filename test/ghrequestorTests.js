@@ -3,13 +3,14 @@ const chai = require('chai');
 const expect = require('chai').expect;
 const extend = require('extend');
 const requestor = require('../lib/ghrequestor.js');
+const client = require('../lib/requestClient.js');
 const request = require('requestretry');
 
 const urlHost = 'https://test.com';
 
 describe('Request option merging', () => {
   it('should merge and override properties', () => {
-    const result = new requestor({
+    const result = new client({
       retryDelay: 10,
       testProperty: 'test value'
     });
@@ -18,7 +19,7 @@ describe('Request option merging', () => {
   });
 
   it('should merge and override headers', () => {
-    const result = new requestor({
+    const result = new client({
       headers: {
         'User-Agent': 'test agent',
         authorization: 'test auth'
