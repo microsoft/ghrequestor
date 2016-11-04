@@ -2,14 +2,14 @@ const assert = require('chai').assert;
 const chai = require('chai');
 const expect = require('chai').expect;
 const extend = require('extend');
-const GHRequestor = require('../lib/ghrequestor.js');
+const requestor = require('../lib/ghrequestor.js');
 const request = require('requestretry');
 
 const urlHost = 'https://test.com';
 
 describe('Request option merging', () => {
   it('should merge and override properties', () => {
-    const result = new GHRequestor({
+    const result = new requestor({
       retryDelay: 10,
       testProperty: 'test value'
     });
@@ -18,7 +18,7 @@ describe('Request option merging', () => {
   });
 
   it('should merge and override headers', () => {
-    const result = new GHRequestor({
+    const result = new requestor({
       headers: {
         'User-Agent': 'test agent',
         authorization: 'test auth'
@@ -32,11 +32,11 @@ describe('Request option merging', () => {
 describe('Request retry and success', () => {
   it('should be able to get a single page resource', () => {
     const responses = [createSingleResponse({ id: 'cool object' })];
-    const requestor = createRequestor(responses);
+    initializeRequestHook(responses);
     requestor.get(`${urlHost}/singlePageResource`).then(response => {
       const result = response.body;
       expect(result.id).to.equal('cool object');
-      const activity = requestor.activity[0];
+      const activity = response.activity[0];
       expect(activity.attempts).to.equal(1);
     });
   });
@@ -47,13 +47,13 @@ describe('Request retry and success', () => {
       createMultiPageResponse('twoPageResource', [{ page: 2 }], 1, null)
     ];
     const requestTracker = [];
-    const requestor = createRequestor(responses, requestTracker);
-    return requestor.getAll(`${urlHost}/twoPageResource`).then(result => {
+    initializeRequestHook(responses, requestTracker);
+    return requestor.getAll(`${urlHost}/twoPageResource`, defaultOptions).then(result => {
       expect(result.length).to.equal(2);
       expect(result[0].page).to.equal(1);
       expect(result[1].page).to.equal(2);
-      expect(requestor.activity[0].attempts).to.equal(1);
-      expect(requestor.activity[1].attempts).to.equal(1);
+      expect(result.activity[0].attempts).to.equal(1);
+      expect(result.activity[1].attempts).to.equal(1);
 
       expect(requestTracker.length).to.equal(2);
       expect(requestTracker[0]).to.not.include('?page=1');
@@ -74,8 +74,8 @@ describe('Request retry and success', () => {
       createSingleResponse('bummer', 500),
       createSingleResponse('bummer', 500)
     ];
-    const requestor = createRequestor(responses);
-    return requestor.getAll(`${urlHost}/serverError`).then(result => {
+    initializeRequestHook(responses);
+    return requestor.getAll(`${urlHost}/serverError`, defaultOptions).then(result => {
       assert.fail();
     }, err => {
       // TODO what should be the right return value from a 500?
@@ -84,9 +84,9 @@ describe('Request retry and success', () => {
       expect(err.message).to.equal('Non-2** response received');
       expect(err.response.body).to.equal('bummer');
       expect(err.response.statusCode).to.equal(500);
-      const activity = requestor.activity[0];
-      expect(activity.attempts).to.equal(requestor.options.maxAttempts);
-      expect(activity.delays[0].retry).to.equal(requestor.options.retryDelay);
+      const activity = err.response.activity[0];
+      expect(activity.attempts).to.equal(defaultOptions.maxAttempts);
+      expect(activity.delays[0].retry).to.equal(defaultOptions.retryDelay);
     });
   });
 
@@ -96,12 +96,12 @@ describe('Request retry and success', () => {
       createSingleResponse({ id: 1 }),
       createSingleResponse({ id: 2 })
     ];
-    const requestor = createRequestor(responses);
-    return requestor.getAll(`${urlHost}/retry500succeed`).then(result => {
-      expect(result.id).to.equal(1);
-      const activity = requestor.activity[0];
+    initializeRequestHook(responses);
+    return requestor.getAll(`${urlHost}/retry500succeed`, defaultOptions).then(result => {
+      expect(result[0].id).to.equal(1);
+      const activity = result.activity[0];
       expect(activity.attempts).to.equal(2);
-      expect(activity.delays[0].retry).to.equal(requestor.options.retryDelay);
+      expect(activity.delays[0].retry).to.equal(defaultOptions.retryDelay);
     }, err => {
       assert.fail();
     });
@@ -115,14 +115,14 @@ describe('Request retry and success', () => {
       createErrorResponse('bummer'),
       createErrorResponse('bummer')
     ];
-    const requestor = createRequestor(responses);
-    return requestor.getAll(`${urlHost}/networkError`).then(result => {
+    initializeRequestHook(responses);
+    return requestor.getAll(`${urlHost}/networkError`, defaultOptions).then(result => {
       assert.fail();
     }, err => {
       expect(err.message).to.equal('bummer');
-      const activity = requestor.activity[0];
-      expect(activity.attempts).to.be.null;
-      expect(activity.delays[0].retry).to.equal(requestor.options.retryDelay);
+      const activity = err.activity[0];
+      expect(activity.attempts).to.be.undefined;
+      expect(activity.delays[0].retry).to.equal(defaultOptions.retryDelay);
     });
   });
 
@@ -133,14 +133,14 @@ describe('Request retry and success', () => {
       createSingleResponse({ id: 1 }),
       createSingleResponse({ id: 2 })
     ];
-    const requestor = createRequestor(responses);
-    return requestor.getAll(`${urlHost}/retryNetworkErrorSucceed`).then(result => {
-      expect(result.id).to.equal(1);
-      const activity = requestor.activity[0];
+    initializeRequestHook(responses);
+    return requestor.getAll(`${urlHost}/retryNetworkErrorSucceed`, defaultOptions).then(result => {
+      expect(result[0].id).to.equal(1);
+      const activity = result.activity[0];
       expect(activity.attempts).to.equal(3);
       expect(activity.delays.length).to.equal(2);
-      expect(activity.delays[0].retry).to.equal(requestor.options.retryDelay);
-      expect(activity.delays[1].retry).to.equal(requestor.options.retryDelay);
+      expect(activity.delays[0].retry).to.equal(defaultOptions.retryDelay);
+      expect(activity.delays[1].retry).to.equal(defaultOptions.retryDelay);
     }, err => {
       assert.fail();
     });
@@ -152,13 +152,13 @@ describe('Request retry and success', () => {
       createSingleResponse({ id: 1 }),
       createSingleResponse({ id: 2 })
     ];
-    const requestor = createRequestor(responses);
-    return requestor.getAll(`${urlHost}/forbidden`).then(result => {
-      expect(result.id).to.equal(1);
-      const activity = requestor.activity[0];
+    initializeRequestHook(responses);
+    return requestor.getAll(`${urlHost}/forbidden`, defaultOptions).then(result => {
+      expect(result[0].id).to.equal(1);
+      const activity = result.activity[0];
       expect(activity.attempts).to.equal(2);
       expect(activity.delays.length).to.equal(1);
-      expect(activity.delays[0].forbidden).to.equal(requestor.options.forbiddenDelay);
+      expect(activity.delays[0].forbidden).to.equal(defaultOptions.forbiddenDelay);
     }, err => {
       assert.fail();
     });
@@ -171,21 +171,21 @@ describe('Request retry and success', () => {
       createMultiPageResponse('pagedWithErrors', [{ page: 2 }], 1, null, 2, null, 'bummer'),
       createMultiPageResponse('pagedWithErrors', [{ page: 2 }], 1, null)
     ];
-    const requestor = createRequestor(responses);
-    return requestor.getAll(`${urlHost}/pagedWithErrors`).then(result => {
+    initializeRequestHook(responses);
+    return requestor.getAll(`${urlHost}/pagedWithErrors`, defaultOptions).then(result => {
       expect(result.length).to.equal(2);
       expect(result[0].page).to.equal(1);
       expect(result[1].page).to.equal(2);
 
-      expect(requestor.activity.length).to.equal(2);
-      const activity0 = requestor.activity[0];
+      expect(result.activity.length).to.equal(2);
+      const activity0 = result.activity[0];
       expect(activity0.attempts).to.equal(1);
       expect(activity0.delays).to.be.undefined;
 
-      const activity1 = requestor.activity[1];
+      const activity1 = result.activity[1];
       expect(activity1.attempts).to.equal(2);
       expect(activity1.delays.length).to.equal(1);
-      expect(activity1.delays[0].retry).to.equal(requestor.options.retryDelay);
+      expect(activity1.delays[0].retry).to.equal(defaultOptions.retryDelay);
     }, err => {
       assert.fail();
     });
@@ -193,25 +193,62 @@ describe('Request retry and success', () => {
 
   it('should recover after throttling and deliver all pages', () => {
     const responses = [
-      // createMultiPageResponse(target, body, previous, next, last, code = 200, error = null, remaining = 4000, reset = null) {
       createMultiPageResponse('pagedWithErrors', [{ page: 1 }], null, 2, 2, null, null, 20, Date.now() + 1000),
       createMultiPageResponse('pagedWithErrors', [{ page: 2 }], 1, null)
     ];
-    const requestor = createRequestor(responses);
-    return requestor.getAll(`${urlHost}`).then(result => {
+    initializeRequestHook(responses);
+    return requestor.getAll(`${urlHost}`, defaultOptions).then(result => {
       expect(result.length).to.equal(2);
       expect(result[0].page).to.equal(1);
       expect(result[1].page).to.equal(2);
 
-      expect(requestor.activity.length).to.equal(2);
-      const activity0 = requestor.activity[0];
+      expect(result.activity.length).to.equal(2);
+      const activity0 = result.activity[0];
       expect(activity0.attempts).to.equal(1);
       expect(activity0.delays).to.be.undefined;
       expect(activity0.rateLimitDelay > 0).to.be.true;
 
-      const activity1 = requestor.activity[1];
+      const activity1 = result.activity[1];
       expect(activity1.attempts).to.equal(1);
       expect(activity1.delays).to.be.undefined;
+    }, err => {
+      assert.fail();
+    });
+  });
+
+  it('should deliver result array after throttling', () => {
+    const responses = [
+      createMultiPageResponse('throttled', [{ page: 1 }], null, null, 1, null, null, 20, Date.now() + 1000)
+    ];
+    initializeRequestHook(responses);
+    return requestor.getAll(`${urlHost}`, defaultOptions).then(result => {
+      expect(result.length).to.equal(1);
+      expect(result[0].page).to.equal(1);
+
+      expect(result.activity.length).to.equal(1);
+      const activity0 = result.activity[0];
+      expect(activity0.attempts).to.equal(1);
+      expect(activity0.delays).to.be.undefined;
+      expect(activity0.rateLimitDelay > 0).to.be.true;
+    }, err => {
+      assert.fail();
+    });
+  });
+
+  it('should deliver single result after throttling', () => {
+    const responses = [
+      createSingleResponse({ cool: 'object' }, 200, 20, Date.now() + 1000)
+    ];
+    initializeRequestHook(responses);
+    return requestor.get(`${urlHost}`, defaultOptions).then(result => {
+      expect(Array.isArray(result)).to.be.false;
+      expect(result.body.cool).to.equal('object');
+
+      expect(result.activity.length).to.equal(1);
+      const activity0 = result.activity[0];
+      expect(activity0.attempts).to.equal(1);
+      expect(activity0.delays).to.be.undefined;
+      expect(activity0.rateLimitDelay > 0).to.be.true;
     }, err => {
       assert.fail();
     });
@@ -221,12 +258,15 @@ describe('Request retry and success', () => {
 function createRequestor(responses, requestTracker = null) {
   // initialize the hook each time to ensure a fresh copy of the response table
   initializeRequestHook(responses, requestTracker);
-  return new GHRequestor({
-    retryDelay: 10,
-    forbiddenDelay: 15,
-    mode: 'test'
-  });
+
 }
+
+const defaultOptions = {
+  retryDelay: 10,
+  forbiddenDelay: 15,
+  mode: 'test',
+  maxAttempts: 5
+};
 
 // hook the node request object to bypass the actual network sending and do the thing we want.
 function initializeRequestHook(responseList, requestTracker = null) {
@@ -245,12 +285,13 @@ function initializeRequestHook(responseList, requestTracker = null) {
   request.Request.request = hook;
 }
 
-function createSingleResponse(body, code = 200, remaining = 4000) {
+function createSingleResponse(body, code = 200, remaining = 4000, reset = null) {
   return {
     response: {
       statusCode: code,
       headers: {
-        'x-ratelimit-remaining': remaining
+        'x-ratelimit-remaining': remaining,
+        'x-ratelimit-reset': reset ? reset : 0,
       },
       body: body
     }
