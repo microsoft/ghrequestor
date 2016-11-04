@@ -68,11 +68,11 @@ describe('Request retry and success', () => {
 
   it('should retry 500 errors and eventually fail', () => {
     const responses = [
-      createSingleResponse('bummer', 500),
-      createSingleResponse('bummer', 500),
-      createSingleResponse('bummer', 500),
-      createSingleResponse('bummer', 500),
-      createSingleResponse('bummer', 500)
+      createSingleResponse('bummer', 500, 'Server Error'),
+      createSingleResponse('bummer', 500, 'Server Error'),
+      createSingleResponse('bummer', 500, 'Server Error'),
+      createSingleResponse('bummer', 500, 'Server Error'),
+      createSingleResponse('bummer', 500, 'Server Error')
     ];
     initializeRequestHook(responses);
     return requestor.getAll(`${urlHost}/serverError`, defaultOptions).then(result => {
@@ -81,7 +81,7 @@ describe('Request retry and success', () => {
       // TODO what should be the right return value from a 500?
       // The body of the response or the response itself?
       expect(err.response).to.not.be.null;
-      expect(err.message).to.equal('Non-2** response received');
+      expect(err.message).to.equal('Server Error');
       expect(err.response.body).to.equal('bummer');
       expect(err.response.statusCode).to.equal(500);
       const activity = err.response.activity[0];
@@ -237,7 +237,7 @@ describe('Request retry and success', () => {
 
   it('should deliver single result after throttling', () => {
     const responses = [
-      createSingleResponse({ cool: 'object' }, 200, 20, Date.now() + 1000)
+      createSingleResponse({ cool: 'object' }, 200, 'OK', 20, Date.now() + 1000)
     ];
     initializeRequestHook(responses);
     return requestor.get(`${urlHost}`, defaultOptions).then(result => {
@@ -253,12 +253,31 @@ describe('Request retry and success', () => {
       assert.fail();
     });
   });
+
+  it('should fail on non-retryable statusCodes', () => {
+    const responses = [
+      createSingleResponse(null, 401)
+    ];
+    initializeRequestHook(responses);
+    return requestor.get(`${urlHost}`, defaultOptions).then(
+      () => {
+        assert.fail();
+      },
+      err => {
+        expect(err instanceof Error).to.be.true;
+        expect(err.response.statusCode).to.be.equal(401);
+
+        expect(err.activity.length).to.equal(1);
+        const activity0 = err.activity[0];
+        expect(activity0.attempts).to.equal(1);
+        expect(activity0.delays).to.be.undefined;
+      });
+  });
 });
 
 function createRequestor(responses, requestTracker = null) {
   // initialize the hook each time to ensure a fresh copy of the response table
   initializeRequestHook(responses, requestTracker);
-
 }
 
 const defaultOptions = {
@@ -285,10 +304,11 @@ function initializeRequestHook(responseList, requestTracker = null) {
   request.Request.request = hook;
 }
 
-function createSingleResponse(body, code = 200, remaining = 4000, reset = null) {
+function createSingleResponse(body, code = 200, message = null, remaining = 4000, reset = null) {
   return {
     response: {
       statusCode: code,
+      statusMessage: message,
       headers: {
         'x-ratelimit-remaining': remaining,
         'x-ratelimit-reset': reset ? reset : 0,
