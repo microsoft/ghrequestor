@@ -41,6 +41,25 @@ describe('Request retry and success', () => {
     });
   });
 
+  it('should be able to use the same requestor twice', () => {
+    let responses = [createSingleResponse({ id: 'cool object' })];
+    initializeRequestHook(responses);
+    const instance = new requestor();
+    instance.get(`${urlHost}/singlePageResource`).then(response => {
+      const result = response.body;
+      expect(result.id).to.equal('cool object');
+      const activity = response.activity[0];
+      expect(activity.attempts).to.equal(1);
+    });
+    responses = [createSingleResponse({ id: 'second object' })];
+    instance.get(`${urlHost}/singlePageResource`).then(response => {
+      const result = response.body;
+      expect(result.id).to.equal('second object');
+      const activity = response.activity[0];
+      expect(activity.attempts).to.equal(1);
+    });
+  });
+
   it('should be able to get a multi page resource', () => {
     const responses = [
       createMultiPageResponse('twoPageResource', [{ page: 1 }], null, 2),
