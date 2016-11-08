@@ -41,6 +41,26 @@ describe('Request retry and success', () => {
     });
   });
 
+  it('should be able to use get() on the same requestor twice', () => {
+    const instance = new requestor();
+    let responses = [createSingleResponse({ id: 'cool object' })];
+    initializeRequestHook(responses);
+    instance.get(`${urlHost}/singlePageResource`).then(response => {
+      const result = response.body;
+      expect(result.id).to.equal('cool object');
+      const activity = response.activity[0];
+      expect(activity.attempts).to.equal(1);
+    });
+    responses = [createSingleResponse({ id: 'second object' })];
+    initializeRequestHook(responses);
+    instance.get(`${urlHost}/singlePageResource`).then(response => {
+      const result = response.body;
+      expect(result.id).to.equal('second object');
+      const activity = response.activity[0];
+      expect(activity.attempts).to.equal(1);
+    });
+  });
+
   it('should be able to get a multi page resource', () => {
     const responses = [
       createMultiPageResponse('twoPageResource', [{ page: 1 }], null, 2),
@@ -63,6 +83,57 @@ describe('Request retry and success', () => {
       expect(requestTracker[1]).to.include('per_page');
     }, err => {
       assert.fail();
+    });
+  });
+
+  it('should be able to getAll twice on a multi page resource', () => {
+    const instance = new requestor(defaultOptions);
+    let responses = [
+      createMultiPageResponse('twoPageResource', [{ page: 1 }], null, 2),
+      createMultiPageResponse('twoPageResource', [{ page: 2 }], 1, null)
+    ];
+    let requestTracker = [];
+    initializeRequestHook(responses, requestTracker);
+    result1 = instance.getAll(`${urlHost}/twoPageResource`).then(result => {
+      expect(result.length).to.equal(2);
+      expect(result[0].page).to.equal(1);
+      expect(result[1].page).to.equal(2);
+      expect(result.activity[0].attempts).to.equal(1);
+      expect(result.activity[1].attempts).to.equal(1);
+
+      expect(requestTracker.length).to.equal(2);
+      expect(requestTracker[0]).to.not.include('?page=1');
+      expect(requestTracker[0]).to.not.include('&page=1');
+      expect(requestTracker[0]).to.include('per_page');
+      expect(requestTracker[1]).to.include('page=2');
+      expect(requestTracker[1]).to.include('per_page');
+    }, err => {
+      assert.fail();
+    });
+
+    return result1.then(() => {
+      responses = [
+        createMultiPageResponse('twoPageResource', [{ page: 3 }], null, 2),
+        createMultiPageResponse('twoPageResource', [{ page: 4 }], 1, null)
+      ];
+      requestTracker = [];
+      initializeRequestHook(responses, requestTracker);
+      return instance.getAll(`${urlHost}/twoPageResource`).then(result => {
+        expect(result.length).to.equal(2);
+        expect(result[0].page).to.equal(3);
+        expect(result[1].page).to.equal(4);
+        expect(result.activity[0].attempts).to.equal(1);
+        expect(result.activity[1].attempts).to.equal(1);
+
+        expect(requestTracker.length).to.equal(2);
+        expect(requestTracker[0]).to.not.include('?page=1');
+        expect(requestTracker[0]).to.not.include('&page=1');
+        expect(requestTracker[0]).to.include('per_page');
+        expect(requestTracker[1]).to.include('page=2');
+        expect(requestTracker[1]).to.include('per_page');
+      }, err => {
+        assert.fail();
+      });
     });
   });
 
