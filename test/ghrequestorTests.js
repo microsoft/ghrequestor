@@ -2,14 +2,15 @@ const assert = require('chai').assert;
 const chai = require('chai');
 const expect = require('chai').expect;
 const extend = require('extend');
-const requestor = require('../lib/ghrequestor.js');
+const requestor = require('../lib/requestor.js');
+const GHRequestor = require('../lib/ghrequestor.js')
 const request = require('requestretry');
 
 const urlHost = 'https://test.com';
 
 describe('Request option merging', () => {
   it('should merge and override properties', () => {
-    const result = new requestor({
+    const result = new GHRequestor({
       retryDelay: 10,
       testProperty: 'test value'
     });
@@ -18,7 +19,7 @@ describe('Request option merging', () => {
   });
 
   it('should merge and override headers', () => {
-    const result = new requestor({
+    const result = new GHRequestor({
       headers: {
         'User-Agent': 'test agent',
         authorization: 'test auth'
@@ -42,7 +43,7 @@ describe('Request retry and success', () => {
   });
 
   it('should be able to use get() on the same requestor twice', () => {
-    const instance = new requestor();
+    const instance = requestor.getInstance();
     let responses = [createSingleResponse({ id: 'cool object' })];
     initializeRequestHook(responses);
     instance.get(`${urlHost}/singlePageResource`).then(response => {
@@ -87,7 +88,7 @@ describe('Request retry and success', () => {
   });
 
   it('should be able to getAll twice on a multi page resource', () => {
-    const instance = new requestor(defaultOptions);
+    const instance = requestor.getInstance(defaultOptions);
     let responses = [
       createMultiPageResponse('twoPageResource', [{ page: 1 }], null, 2),
       createMultiPageResponse('twoPageResource', [{ page: 2 }], 1, null)
@@ -109,7 +110,7 @@ describe('Request retry and success', () => {
       expect(requestTracker[1]).to.include('per_page');
     }, err => {
       assert.fail();
-    });
+      });
 
     return result1.then(() => {
       responses = [
