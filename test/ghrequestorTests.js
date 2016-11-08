@@ -9,23 +9,22 @@ const urlHost = 'https://test.com';
 
 describe('Request option merging', () => {
   it('should merge and override properties', () => {
-    const result = new requestor({
+    const defaults = {
       retryDelay: 10,
-      testProperty: 'test value'
-    });
-    expect(result.options.retryDelay).to.equal(10);
-    expect(result.options.testProperty).to.equal('test value');
-  });
-
-  it('should merge and override headers', () => {
-    const result = new requestor({
+      headers: { authorization: 'foo' }
+    };
+    const result = requestor.mergeOptions(defaults, {
+      retryDelay: 10,
+      testProperty: 'test value',
       headers: {
         'User-Agent': 'test agent',
         authorization: 'test auth'
       }
     });
-    expect(result.options.headers['User-Agent']).to.equal('test agent');
-    expect(result.options.headers.authorization).to.equal('test auth');
+    expect(result.retryDelay).to.equal(10);
+    expect(result.testProperty).to.equal('test value');
+    expect(result.headers['User-Agent']).to.equal('test agent');
+    expect(result.headers.authorization).to.equal('test auth');
   });
 });
 
@@ -42,7 +41,7 @@ describe('Request retry and success', () => {
   });
 
   it('should be able to use get() on the same requestor twice', () => {
-    const instance = new requestor();
+    const instance = requestor.defaults();
     let responses = [createSingleResponse({ id: 'cool object' })];
     initializeRequestHook(responses);
     instance.get(`${urlHost}/singlePageResource`).then(response => {
@@ -87,7 +86,7 @@ describe('Request retry and success', () => {
   });
 
   it('should be able to getAll twice on a multi page resource', () => {
-    const instance = new requestor(defaultOptions);
+    const instance = requestor.defaults(defaultOptions);
     let responses = [
       createMultiPageResponse('twoPageResource', [{ page: 1 }], null, 2),
       createMultiPageResponse('twoPageResource', [{ page: 2 }], 1, null)
