@@ -469,7 +469,6 @@ function createResponse(body, code = 200, message = null, remaining = 4000, rese
   };
 }
 
-
 function create304Response(etag) {
   return {
     response: {
