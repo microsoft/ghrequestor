@@ -31,6 +31,7 @@
     "lib/ghrequestor.js"
   ],
   "dependencies": {
+    "parse-link-header": "^0.4.1",
     "q": "^1.4.1",
     "qlimit": "^0.1.1",
     "requestretry": "^1.12.0"
