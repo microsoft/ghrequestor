@@ -3,9 +3,6 @@
   "version": "0.1.5",
   "description": "A simple, resilient GitHub API client for bulk retrieval of GitHub resources",
   "main": "./lib/ghrequestor.js",
-  "bin": {
-    "ghrequestor": "./lib/ghrequestor.js"
-  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
