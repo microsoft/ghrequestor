@@ -3,6 +3,7 @@ const chai = require('chai');
 const expect = require('chai').expect;
 const extend = require('extend');
 const request = require('requestretry');
+const winston = require('winston');
 
 const defaultOptions = {
   retryDelay: 10,
@@ -26,12 +27,14 @@ describe('Request option merging', () => {
       headers: {
         'User-Agent': 'test agent',
         authorization: 'test auth'
-      }
+      },
+      logger:winston
     });
     expect(result.retryDelay).to.equal(10);
     expect(result.testProperty).to.equal('test value');
     expect(result.headers['User-Agent']).to.equal('test agent');
     expect(result.headers.authorization).to.equal('test auth');
+    expect(result.logger).to.equal(winston);
   });
 });
 
@@ -91,101 +94,54 @@ describe('Response collapsing...', () => {
 });
 
 describe('Request retry and success', () => {
-  it('should be able to get a single page resource', () => {
-    const responses = [createResponse({ id: 'cool object' })];
-    initializeRequestHook(responses);
-    requestor.get(`${urlHost}/singlePageResource`).then(response => {
-      const result = response.body;
-      expect(result.id).to.equal('cool object');
-      const activity = response.activity[0];
-      expect(activity.attempts).to.equal(1);
-    });
-  });
-
-  it('should be able to use get() on the same requestor twice', () => {
-    const instance = requestor.defaults();
-    let responses = [createResponse({ id: 'cool object' })];
-    initializeRequestHook(responses);
-    instance.get(`${urlHost}/singlePageResource`).then(response => {
-      const result = response.body;
-      expect(result.id).to.equal('cool object');
-      const activity = response.activity[0];
-      expect(activity.attempts).to.equal(1);
-    });
-    responses = [createResponse({ id: 'second object' })];
-    initializeRequestHook(responses);
-    instance.get(`${urlHost}/singlePageResource`).then(response => {
-      const result = response.body;
-      expect(result.id).to.equal('second object');
-      const activity = response.activity[0];
-      expect(activity.attempts).to.equal(1);
-    });
-  });
-
-  it('should be able to get a multi page resource', () => {
-    const responses = [
-      createMultiPageResponse('twoPageResource', [{ element: 1 }], null, 2),
-      createMultiPageResponse('twoPageResource', [{ element: 2 }, { element: 3 }], 1, null)
-    ];
-    const requestTracker = [];
-    initializeRequestHook(responses, requestTracker);
-    return requestor.getAll(`${urlHost}/twoPageResource`).then(result => {
-      expect(result.length).to.equal(3);
-      expect(result[0].element).to.equal(1);
-      expect(result[1].element).to.equal(2);
-      expect(result[2].element).to.equal(3);
-
-      expect(result.activity.length).to.equal(2);
-      expect(result.activity[0].attempts).to.equal(1);
-      expect(result.activity[1].attempts).to.equal(1);
-
-      expect(requestTracker.length).to.equal(2);
-      expect(requestTracker[0].url).to.not.include('?page=1');
-      expect(requestTracker[0].url).to.not.include('&page=1');
-      expect(requestTracker[0].url).to.include('per_page');
-      expect(requestTracker[1].url).to.include('page=2');
-      expect(requestTracker[1].url).to.include('per_page');
-    }, err => {
-      assert.fail();
-    });
-  });
-
-  it('should be able to getAll twice on a multi page resource', () => {
-    const instance = requestor.defaults(defaultOptions);
-    let responses = [
-      createMultiPageResponse('twoPageResource', [{ page: 1 }], null, 2),
-      createMultiPageResponse('twoPageResource', [{ page: 2 }], 1, null)
-    ];
-    let requestTracker = [];
-    initializeRequestHook(responses, requestTracker);
-    result1 = instance.getAll(`${urlHost}/twoPageResource`).then(result => {
-      expect(result.length).to.equal(2);
-      expect(result[0].page).to.equal(1);
-      expect(result[1].page).to.equal(2);
-      expect(result.activity[0].attempts).to.equal(1);
-      expect(result.activity[1].attempts).to.equal(1);
-
-      expect(requestTracker.length).to.equal(2);
-      expect(requestTracker[0].url).to.not.include('?page=1');
-      expect(requestTracker[0].url).to.not.include('&page=1');
-      expect(requestTracker[0].url).to.include('per_page');
-      expect(requestTracker[1].url).to.include('page=2');
-      expect(requestTracker[1].url).to.include('per_page');
-    }, err => {
-      assert.fail();
+  runRequests();
+  runRequests(winston);
+  function runRequests(logger) {
+    it(`should be able to get a single page resource ${logger ? 'with logging' : ''}`, () => {
+      const responses = [createResponse({ id: 'cool object' })];
+      initializeRequestHook(responses);
+      requestor.get(`${urlHost}/singlePageResource`, {logger: logger}).then(response => {
+        const result = response.body;
+        expect(result.id).to.equal('cool object');
+        const activity = response.activity[0];
+        expect(activity.attempts).to.equal(1);
+      });
     });
 
-    return result1.then(() => {
-      responses = [
-        createMultiPageResponse('twoPageResource', [{ page: 3 }], null, 2),
-        createMultiPageResponse('twoPageResource', [{ page: 4 }], 1, null)
+    it(`should be able to use get() on the same requestor twice ${logger ? 'with logging' : ''}`, () => {
+      const instance = requestor.defaults();
+      let responses = [createResponse({ id: 'cool object' })];
+      initializeRequestHook(responses);
+      instance.get(`${urlHost}/singlePageResource`, {logger: logger}).then(response => {
+        const result = response.body;
+        expect(result.id).to.equal('cool object');
+        const activity = response.activity[0];
+        expect(activity.attempts).to.equal(1);
+      });
+      responses = [createResponse({ id: 'second object' })];
+      initializeRequestHook(responses);
+      instance.get(`${urlHost}/singlePageResource`, {logger: logger}).then(response => {
+        const result = response.body;
+        expect(result.id).to.equal('second object');
+        const activity = response.activity[0];
+        expect(activity.attempts).to.equal(1);
+      });
+    });
+
+    it(`should be able to get a multi page resource ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createMultiPageResponse('twoPageResource', [{ element: 1 }], null, 2),
+        createMultiPageResponse('twoPageResource', [{ element: 2 }, { element: 3 }], 1, null)
       ];
-      requestTracker = [];
+      const requestTracker = [];
       initializeRequestHook(responses, requestTracker);
-      return instance.getAll(`${urlHost}/twoPageResource`).then(result => {
-        expect(result.length).to.equal(2);
-        expect(result[0].page).to.equal(3);
-        expect(result[1].page).to.equal(4);
+      return requestor.getAll(`${urlHost}/twoPageResource`, {logger: logger}).then(result => {
+        expect(result.length).to.equal(3);
+        expect(result[0].element).to.equal(1);
+        expect(result[1].element).to.equal(2);
+        expect(result[2].element).to.equal(3);
+
+        expect(result.activity.length).to.equal(2);
         expect(result.activity[0].attempts).to.equal(1);
         expect(result.activity[1].attempts).to.equal(1);
 
@@ -199,277 +155,328 @@ describe('Request retry and success', () => {
         assert.fail();
       });
     });
-  });
 
-  it('should retry 500 errors and eventually fail', () => {
-    const responses = [
-      createResponse('bummer', 500, 'Server Error'),
-      createResponse('bummer', 500, 'Server Error'),
-      createResponse('bummer', 500, 'Server Error'),
-      createResponse('bummer', 500, 'Server Error'),
-      createResponse('bummer', 500, 'Server Error')
-    ];
-    initializeRequestHook(responses);
-    return requestor.getAllResponses(`${urlHost}/serverError`).then(response => {
-      expect(response.length).to.be.equal(1);
-      expect(response[0].statusCode).to.be.equal(500);
-      expect(response.activity.length).to.be.equal(1);
-      expect(response.activity[0].attempts).to.be.equal(defaultOptions.maxAttempts);
-    }, err => {
-      assert.fail();
-    });
-  });
+    it(`should be able to getAll twice on a multi page resource ${logger ? 'with logging' : ''}`, () => {
+      const instance = requestor.defaults(defaultOptions);
+      let responses = [
+        createMultiPageResponse('twoPageResource', [{ page: 1 }], null, 2),
+        createMultiPageResponse('twoPageResource', [{ page: 2 }], 1, null)
+      ];
+      let requestTracker = [];
+      initializeRequestHook(responses, requestTracker);
+      result1 = instance.getAll(`${urlHost}/twoPageResource`, {logger: logger}).then(result => {
+        expect(result.length).to.equal(2);
+        expect(result[0].page).to.equal(1);
+        expect(result[1].page).to.equal(2);
+        expect(result.activity[0].attempts).to.equal(1);
+        expect(result.activity[1].attempts).to.equal(1);
 
-  it('should retry 500 errors and eventually succeed', () => {
-    const responses = [
-      createResponse('bummer', 500),
-      createResponse({ id: 1 }),
-      createResponse({ id: 2 })
-    ];
-    initializeRequestHook(responses);
-    return requestor.getAll(`${urlHost}/retry500succeed`).then(result => {
-      expect(result[0].id).to.equal(1);
-      const activity = result.activity[0];
-      expect(activity.attempts).to.equal(2);
-      expect(activity.delays[0].retry).to.equal(defaultOptions.retryDelay);
-    }, err => {
-      assert.fail(err);
-    });
-  });
-
-  it('should not retry errors without response', () => {
-    const responses = [
-      createErrorResponse('bummer'),
-      createErrorResponse('bummer'),
-      createErrorResponse('bummer'),
-      createErrorResponse('bummer'),
-      createErrorResponse('bummer')
-    ];
-    initializeRequestHook(responses);
-    return requestor.getAllResponses(`${urlHost}/networkError`).then(result => {
-      assert.fail();
-    }, err => {
-      expect(err.message).to.equal('bummer');
-      const activity = err.activity[0];
-      expect(activity.attempts).to.be.undefined;
-      expect(activity.delays[0].retry).to.equal(defaultOptions.retryDelay);
-    });
-  });
-
-  it('should retry network errors and eventually succeed', () => {
-    const responses = [
-      createErrorResponse('bummer 1'),
-      createErrorResponse('bummer 2'),
-      createResponse([{ id: 1 }]),
-      createResponse([{ id: 2 }])
-    ];
-    initializeRequestHook(responses);
-    return requestor.getAll(`${urlHost}/retryNetworkErrorSucceed`).then(result => {
-      expect(result[0].id).to.equal(1);
-      const activity = result.activity[0];
-      expect(activity.attempts).to.equal(3);
-      expect(activity.delays.length).to.equal(2);
-      expect(activity.delays[0].retry).to.equal(defaultOptions.retryDelay);
-      expect(activity.delays[1].retry).to.equal(defaultOptions.retryDelay);
-    }, err => {
-      assert.fail();
-    });
-  });
-
-  it('should recover after 403 forbidden', () => {
-    const responses = [
-      createResponse('forbidden 1', 403),
-      createResponse({ id: 1 }),
-      createResponse({ id: 2 })
-    ];
-    initializeRequestHook(responses);
-    return requestor.getAll(`${urlHost}/forbidden`).then(result => {
-      expect(result[0].id).to.equal(1);
-      const activity = result.activity[0];
-      expect(activity.attempts).to.equal(2);
-      expect(activity.delays.length).to.equal(1);
-      expect(activity.delays[0].forbidden).to.equal(defaultOptions.forbiddenDelay);
-    }, err => {
-      assert.fail();
-    });
-  });
-
-  it('should recover after error and deliver all pages', () => {
-    const responses = [
-      // createMultiPageResponse(target, body, previous, next, last, code = 200, error = null, remaining = 4000) {
-      createMultiPageResponse('pagedWithErrors', [{ page: 1 }], null, 2),
-      createMultiPageResponse('pagedWithErrors', [{ page: 2 }], 1, null, 2, null, 'bummer'),
-      createMultiPageResponse('pagedWithErrors', [{ page: 2 }], 1, null)
-    ];
-    initializeRequestHook(responses);
-    return requestor.getAll(`${urlHost}/pagedWithErrors`, defaultOptions).then(result => {
-      expect(result.length).to.equal(2);
-      expect(result[0].page).to.equal(1);
-      expect(result[1].page).to.equal(2);
-
-      expect(result.activity.length).to.equal(2);
-      const activity0 = result.activity[0];
-      expect(activity0.attempts).to.equal(1);
-      expect(activity0.delays).to.be.undefined;
-
-      const activity1 = result.activity[1];
-      expect(activity1.attempts).to.equal(2);
-      expect(activity1.delays.length).to.equal(1);
-      expect(activity1.delays[0].retry).to.equal(defaultOptions.retryDelay);
-    }, err => {
-      assert.fail();
-    });
-  });
-
-  it('should recover after throttling and deliver all pages', () => {
-    const responses = [
-      createMultiPageResponse('pagedWithErrors', [{ page: 1 }], null, 2, 2, 200, null, 20, Date.now() + 1000),
-      createMultiPageResponse('pagedWithErrors', [{ page: 2 }], 1, null)
-    ];
-    initializeRequestHook(responses);
-    return requestor.getAll(`${urlHost}`).then(result => {
-      expect(result.length).to.equal(2);
-      expect(result[0].page).to.equal(1);
-      expect(result[1].page).to.equal(2);
-
-      expect(result.activity.length).to.equal(2);
-      const activity0 = result.activity[0];
-      expect(activity0.attempts).to.equal(1);
-      expect(activity0.delays).to.be.undefined;
-      expect(activity0.rateLimitDelay > 0).to.be.true;
-
-      const activity1 = result.activity[1];
-      expect(activity1.attempts).to.equal(1);
-      expect(activity1.delays).to.be.undefined;
-    }, err => {
-      assert.fail();
-    });
-  });
-
-  it('should deliver result array after throttling', () => {
-    const responses = [
-      createMultiPageResponse('throttled', [{ page: 1 }], null, null, 1, 200, null, 20, Date.now() + 1000)
-    ];
-    initializeRequestHook(responses);
-    return requestor.getAll(`${urlHost}`).then(result => {
-      expect(result.length).to.equal(1);
-      expect(result[0].page).to.equal(1);
-
-      expect(result.activity.length).to.equal(1);
-      const activity0 = result.activity[0];
-      expect(activity0.attempts).to.equal(1);
-      expect(activity0.delays).to.be.undefined;
-      expect(activity0.rateLimitDelay > 0).to.be.true;
-    }, err => {
-      assert.fail();
-    });
-  });
-
-  it('should deliver single result after throttling', () => {
-    const responses = [
-      createResponse({ cool: 'object' }, 200, 'OK', 20, Date.now() + 1000)
-    ];
-    initializeRequestHook(responses);
-    return requestor.get(`${urlHost}`).then(result => {
-      expect(Array.isArray(result)).to.be.false;
-      expect(result.body.cool).to.equal('object');
-
-      expect(result.activity.length).to.equal(1);
-      const activity0 = result.activity[0];
-      expect(activity0.attempts).to.equal(1);
-      expect(activity0.delays).to.be.undefined;
-      expect(activity0.rateLimitDelay > 0).to.be.true;
-    }, err => {
-      assert.fail();
-    });
-  });
-
-  it('should not delay if 403 hit with no forbiddenDelay', () => {
-    const responses = [
-      createResponse(null, 403)
-    ];
-    initializeRequestHook(responses);
-    const testRequestor = requestor.defaults({ forbiddenDelay: 0 });
-    return testRequestor.get(`${urlHost}`).then(
-      response => {
-        expect(response.statusCode).to.be.equal(403);
-        expect(response.activity.length).to.be.equal(1);
-        expect(response.activity[0].attempts).to.be.equal(1);
-        expect(response.activity[0].delays).to.be.undefined;
-      },
-      err => {
+        expect(requestTracker.length).to.equal(2);
+        expect(requestTracker[0].url).to.not.include('?page=1');
+        expect(requestTracker[0].url).to.not.include('&page=1');
+        expect(requestTracker[0].url).to.include('per_page');
+        expect(requestTracker[1].url).to.include('page=2');
+        expect(requestTracker[1].url).to.include('per_page');
+      }, err => {
         assert.fail();
       });
-  });
 
-  it('should not delay if low on tokens and no throttle delay', () => {
-    const responses = [
-      createMultiPageResponse('throttled', [{ page: 1 }], null, null, 1, 200, null, 20, Date.now() + 1000)
-    ];
-    initializeRequestHook(responses);
-    const testRequestor = requestor.defaults({ delayOnThrottle: false });
-    return testRequestor.get(`${urlHost}`).then(
-      response => {
-        expect(response.statusCode).to.be.equal(200);
+      return result1.then(() => {
+        responses = [
+          createMultiPageResponse('twoPageResource', [{ page: 3 }], null, 2),
+          createMultiPageResponse('twoPageResource', [{ page: 4 }], 1, null)
+        ];
+        requestTracker = [];
+        initializeRequestHook(responses, requestTracker);
+        return instance.getAll(`${urlHost}/twoPageResource`, {logger: logger}).then(result => {
+          expect(result.length).to.equal(2);
+          expect(result[0].page).to.equal(3);
+          expect(result[1].page).to.equal(4);
+          expect(result.activity[0].attempts).to.equal(1);
+          expect(result.activity[1].attempts).to.equal(1);
 
-        expect(response.activity.length).to.equal(1);
-        const activity0 = response.activity[0];
+          expect(requestTracker.length).to.equal(2);
+          expect(requestTracker[0].url).to.not.include('?page=1');
+          expect(requestTracker[0].url).to.not.include('&page=1');
+          expect(requestTracker[0].url).to.include('per_page');
+          expect(requestTracker[1].url).to.include('page=2');
+          expect(requestTracker[1].url).to.include('per_page');
+        }, err => {
+          assert.fail();
+        });
+      });
+    });
+
+    it(`should retry 500 errors and eventually fail ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createResponse('bummer', 500, 'Server Error'),
+        createResponse('bummer', 500, 'Server Error'),
+        createResponse('bummer', 500, 'Server Error'),
+        createResponse('bummer', 500, 'Server Error'),
+        createResponse('bummer', 500, 'Server Error')
+      ];
+      initializeRequestHook(responses);
+      return requestor.getAllResponses(`${urlHost}/serverError`, {logger: logger}).then(response => {
+        expect(response.length).to.be.equal(1);
+        expect(response[0].statusCode).to.be.equal(500);
+        expect(response.activity.length).to.be.equal(1);
+        expect(response.activity[0].attempts).to.be.equal(defaultOptions.maxAttempts);
+      }, err => {
+        assert.fail();
+      });
+    });
+
+    it(`should retry 500 errors and eventually succeed ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createResponse('bummer', 500),
+        createResponse({ id: 1 }),
+        createResponse({ id: 2 })
+      ];
+      initializeRequestHook(responses);
+      return requestor.getAll(`${urlHost}/retry500succeed`, {logger: logger}).then(result => {
+        expect(result[0].id).to.equal(1);
+        const activity = result.activity[0];
+        expect(activity.attempts).to.equal(2);
+        expect(activity.delays[0].retry).to.equal(defaultOptions.retryDelay);
+      }, err => {
+        assert.fail(err);
+      });
+    });
+
+    it(`should not retry errors without response ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createErrorResponse('bummer'),
+        createErrorResponse('bummer'),
+        createErrorResponse('bummer'),
+        createErrorResponse('bummer'),
+        createErrorResponse('bummer')
+      ];
+      initializeRequestHook(responses);
+      return requestor.getAllResponses(`${urlHost}/networkError`, {logger: logger}).then(result => {
+        assert.fail();
+      }, err => {
+        expect(err.message).to.equal('bummer');
+        const activity = err.activity[0];
+        expect(activity.attempts).to.be.undefined;
+        expect(activity.delays[0].retry).to.equal(defaultOptions.retryDelay);
+      });
+    });
+
+    it(`should retry network errors and eventually succeed ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createErrorResponse('bummer 1'),
+        createErrorResponse('bummer 2'),
+        createResponse([{ id: 1 }]),
+        createResponse([{ id: 2 }])
+      ];
+      initializeRequestHook(responses);
+      return requestor.getAll(`${urlHost}/retryNetworkErrorSucceed`, {logger: logger}).then(result => {
+        expect(result[0].id).to.equal(1);
+        const activity = result.activity[0];
+        expect(activity.attempts).to.equal(3);
+        expect(activity.delays.length).to.equal(2);
+        expect(activity.delays[0].retry).to.equal(defaultOptions.retryDelay);
+        expect(activity.delays[1].retry).to.equal(defaultOptions.retryDelay);
+      }, err => {
+        assert.fail();
+      });
+    });
+
+    it(`should recover after 403 forbidden ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createResponse('forbidden 1', 403),
+        createResponse({ id: 1 }),
+        createResponse({ id: 2 })
+      ];
+      initializeRequestHook(responses);
+      return requestor.getAll(`${urlHost}/forbidden`, {logger: logger}).then(result => {
+        expect(result[0].id).to.equal(1);
+        const activity = result.activity[0];
+        expect(activity.attempts).to.equal(2);
+        expect(activity.delays.length).to.equal(1);
+        expect(activity.delays[0].forbidden).to.equal(defaultOptions.forbiddenDelay);
+      }, err => {
+        assert.fail();
+      });
+    });
+
+    it(`should recover after error and deliver all pages ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        // createMultiPageResponse(target, body, previous, next, last, code = 200, error = null, remaining = 4000) {
+        createMultiPageResponse('pagedWithErrors', [{ page: 1 }], null, 2),
+        createMultiPageResponse('pagedWithErrors', [{ page: 2 }], 1, null, 2, null, 'bummer'),
+        createMultiPageResponse('pagedWithErrors', [{ page: 2 }], 1, null)
+      ];
+      initializeRequestHook(responses);
+      return requestor.getAll(`${urlHost}/pagedWithErrors`, defaultOptions).then(result => {
+        expect(result.length).to.equal(2);
+        expect(result[0].page).to.equal(1);
+        expect(result[1].page).to.equal(2);
+
+        expect(result.activity.length).to.equal(2);
+        const activity0 = result.activity[0];
         expect(activity0.attempts).to.equal(1);
         expect(activity0.delays).to.be.undefined;
-      },
-      err => {
+
+        const activity1 = result.activity[1];
+        expect(activity1.attempts).to.equal(2);
+        expect(activity1.delays.length).to.equal(1);
+        expect(activity1.delays[0].retry).to.equal(defaultOptions.retryDelay);
+      }, err => {
         assert.fail();
       });
-  });
+    });
 
-  it('should return on non-retryable statusCodes', () => {
-    const responses = [
-      createResponse(null, 401)
-    ];
-    initializeRequestHook(responses);
-    return requestor.get(`${urlHost}`).then(
-      response => {
-        expect(response.statusCode).to.be.equal(401);
-        expect(response.activity.length).to.be.equal(1);
-        expect(response.activity[0].attempts).to.be.equal(1);
-      },
-      err => {
+    it(`should recover after throttling and deliver all pages ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createMultiPageResponse('pagedWithErrors', [{ page: 1 }], null, 2, 2, 200, null, 20, Date.now() + 1000),
+        createMultiPageResponse('pagedWithErrors', [{ page: 2 }], 1, null)
+      ];
+      initializeRequestHook(responses);
+      return requestor.getAll(`${urlHost}`, {logger: logger}).then(result => {
+        expect(result.length).to.equal(2);
+        expect(result[0].page).to.equal(1);
+        expect(result[1].page).to.equal(2);
+
+        expect(result.activity.length).to.equal(2);
+        const activity0 = result.activity[0];
+        expect(activity0.attempts).to.equal(1);
+        expect(activity0.delays).to.be.undefined;
+        expect(activity0.rateLimitDelay > 0).to.be.true;
+
+        const activity1 = result.activity[1];
+        expect(activity1.attempts).to.equal(1);
+        expect(activity1.delays).to.be.undefined;
+      }, err => {
         assert.fail();
       });
-  });
-
-  it('should not fail on 304 responses', () => {
-    const responses = [
-      createMultiPageResponse('throttled', [{ cool: 'object' }], null, 2, 3),
-      createMultiPageResponse('throttled2', null, 1, 3, 3, 304),
-      createMultiPageResponse('throttled3', [{ node: 'is fun' }], 2, null, 3),
-    ];
-    initializeRequestHook(responses);
-    return requestor.getAllResponses(`${urlHost}`).then(response => {
-      expect(response.length).to.equal(3);
-      expect(response[0].statusCode).to.equal(200);
-      expect(response[1].statusCode).to.equal(304);
-      expect(response[2].statusCode).to.equal(200);
-
-      expect(response.activity.length).to.equal(3);
-      const activity0 = response.activity[0];
-      expect(response.activity[0].attempts).to.equal(1);
-      expect(response.activity[1].attempts).to.equal(1);
-      expect(response.activity[2].attempts).to.equal(1);
     });
-  });
 
-  it('should handle etags being passed', () => {
-    const responses = [
-      create304Response('"42"'),
-    ];
-    const requestTracker = [];
-    initializeRequestHook(responses, requestTracker);
-    return requestor.defaults( { etags: ['"42"' ] }).get(`${urlHost}`).then(response => {
-      expect(response.statusCode).to.equal(304);
-      expect(requestTracker[0].headers['If-None-Match']).to.equal('"42"');
+    it(`should deliver result array after throttling ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createMultiPageResponse('throttled', [{ page: 1 }], null, null, 1, 200, null, 20, Date.now() + 1000)
+      ];
+      initializeRequestHook(responses);
+      return requestor.getAll(`${urlHost}`, {logger: logger}).then(result => {
+        expect(result.length).to.equal(1);
+        expect(result[0].page).to.equal(1);
+
+        expect(result.activity.length).to.equal(1);
+        const activity0 = result.activity[0];
+        expect(activity0.attempts).to.equal(1);
+        expect(activity0.delays).to.be.undefined;
+        expect(activity0.rateLimitDelay > 0).to.be.true;
+      }, err => {
+        assert.fail();
+      });
     });
-  });
+
+    it(`should deliver single result after throttling ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createResponse({ cool: 'object' }, 200, 'OK', 20, Date.now() + 1000)
+      ];
+      initializeRequestHook(responses);
+      return requestor.get(`${urlHost}`, {logger: logger}).then(result => {
+        expect(Array.isArray(result)).to.be.false;
+        expect(result.body.cool).to.equal('object');
+
+        expect(result.activity.length).to.equal(1);
+        const activity0 = result.activity[0];
+        expect(activity0.attempts).to.equal(1);
+        expect(activity0.delays).to.be.undefined;
+        expect(activity0.rateLimitDelay > 0).to.be.true;
+      }, err => {
+        assert.fail();
+      });
+    });
+
+    it(`should not delay if 403 hit with no forbiddenDelay ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createResponse(null, 403)
+      ];
+      initializeRequestHook(responses);
+      const testRequestor = requestor.defaults({ forbiddenDelay: 0, logger:logger });
+      return testRequestor.get(`${urlHost}`).then(
+        response => {
+          expect(response.statusCode).to.be.equal(403);
+          expect(response.activity.length).to.be.equal(1);
+          expect(response.activity[0].attempts).to.be.equal(1);
+          expect(response.activity[0].delays).to.be.undefined;
+        },
+        err => {
+          assert.fail();
+        });
+    });
+
+    it(`should not delay if low on tokens and no throttle delay ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createMultiPageResponse('throttled', [{ page: 1 }], null, null, 1, 200, null, 20, Date.now() + 1000)
+      ];
+      initializeRequestHook(responses);
+      const testRequestor = requestor.defaults({ delayOnThrottle: false, logger:logger });
+      return testRequestor.get(`${urlHost}`).then(
+        response => {
+          expect(response.statusCode).to.be.equal(200);
+
+          expect(response.activity.length).to.equal(1);
+          const activity0 = response.activity[0];
+          expect(activity0.attempts).to.equal(1);
+          expect(activity0.delays).to.be.undefined;
+        },
+        err => {
+          assert.fail();
+        });
+    });
+
+    it(`should return on non-retryable statusCodes ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createResponse(null, 401)
+      ];
+      initializeRequestHook(responses);
+      return requestor.get(`${urlHost}`, {logger: logger}).then(
+        response => {
+          expect(response.statusCode).to.be.equal(401);
+          expect(response.activity.length).to.be.equal(1);
+          expect(response.activity[0].attempts).to.be.equal(1);
+        },
+        err => {
+          assert.fail();
+        });
+    });
+
+    it(`should not fail on 304 responses ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        createMultiPageResponse('throttled', [{ cool: 'object' }], null, 2, 3),
+        createMultiPageResponse('throttled2', null, 1, 3, 3, 304),
+        createMultiPageResponse('throttled3', [{ node: 'is fun' }], 2, null, 3),
+      ];
+      initializeRequestHook(responses);
+      return requestor.getAllResponses(`${urlHost}`, {logger: logger}).then(response => {
+        expect(response.length).to.equal(3);
+        expect(response[0].statusCode).to.equal(200);
+        expect(response[1].statusCode).to.equal(304);
+        expect(response[2].statusCode).to.equal(200);
+
+        expect(response.activity.length).to.equal(3);
+        const activity0 = response.activity[0];
+        expect(response.activity[0].attempts).to.equal(1);
+        expect(response.activity[1].attempts).to.equal(1);
+        expect(response.activity[2].attempts).to.equal(1);
+      });
+    });
+
+    it(`should handle etags being passed ${logger ? 'with logging' : ''}`, () => {
+      const responses = [
+        create304Response('"42"'),
+      ];
+      const requestTracker = [];
+      initializeRequestHook(responses, requestTracker);
+      return requestor.defaults({ etags: ['"42"'], logger: logger }).get(`${urlHost}`).then(response => {
+        expect(response.statusCode).to.equal(304);
+        expect(requestTracker[0].headers['If-None-Match']).to.equal('"42"');
+      });
+    });
+  }
 });
 
 function createRequestor(responses, requestTracker = null) {
