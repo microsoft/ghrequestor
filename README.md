@@ -9,6 +9,7 @@ A simple, resilient GitHub API client that:
 * Retries on errors and various forms of rate-limiting.
 * Backs off as you reach your API limit.
 * Automatically fetches all pages of a multi-page resource.
+* Uses etags to conserve API tokens and be kind to GitHub.
 * Reports comprehensive data on number of pages fetched, retry attempts, and length of delays.
 
 GHRequestor is a relatively low-level facility intended for traversing large graphs of GitHub resources.
