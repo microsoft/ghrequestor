@@ -41,7 +41,8 @@ ghrequestor.getAll('https://api.github.com/repos/Microsoft/ghrequestor/commits')
 GET with a set of etags and a content *supplier* that has the etagged resources.  With this you can integrate an in-memory or persistent cache of GitHub resources and let ghrequestor optimize the fetching and your use of API tokens. It's nicer on the GitHub infrastructure as well.  Notice that the etag value include the `"`s.
 ```javascript
 const ghrequestor = require('ghrequestor');
-ghrequestor.getAllResponses('https://api.github.com/repos/Microsoft/ghrequestor/commits', { etags: ['"42"']}).then(responses => {
+const url = <some url>;
+ghrequestor.getAllResponses(url, { etags: ['"42"']}).then(responses => {
   const supplier = url => { return yourContentLookupCode(); };
   return ghrequestor.flattenResponses(responses, supplier).then(results => {
     console.log(results.length);
