@@ -56,7 +56,7 @@ Authentication is handled the same as with Node's `request` when using optoins a
 ```javascript
 ghrequestor.get(url, { authorization: 'token <my token here>' });
 ```
-
+Or
 ```javascript
 const requestorTemplate = ghrequestor.defaults({ authorization: 'token <my token here>' });
 requestorTemplate.get(url);
