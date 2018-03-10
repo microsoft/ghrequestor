@@ -24,7 +24,6 @@
     "url": "https://github.com/microsoft/ghrequestor"
   },
   "files": [
-    "index.js",
     "lib/ghrequestor.js"
   ],
   "dependencies": {
