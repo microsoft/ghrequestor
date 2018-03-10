@@ -18,7 +18,7 @@ This not intended to replace great modules like [octonode](https://www.npmjs.com
 
 ## Usage
 
-The API is modelled after the standard node `request` libarary and the underlying [requestretry](https://www.npmjs.com/package/requestretry) library. It works with promises or callbacks and allows you to create pre-initialized requestor instances (with options setup) for injection into subsystems etc.
+The API is modelled after the standard node `request` library and the underlying [requestretry](https://www.npmjs.com/package/requestretry) library. It works with promises or callbacks and allows you to create pre-initialized requestor instances (with options setup) for injection into subsystems etc.
 
 Simple GET of a single page
 ```javascript
