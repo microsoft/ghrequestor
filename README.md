@@ -18,7 +18,7 @@ This not intended to replace great modules like [octonode](https://www.npmjs.com
 
 ## Usage
 
-The API is modelled after the standard node `request` library and the underlying [requestretry](https://www.npmjs.com/package/requestretry) library. It works with promises or callbacks and allows you to create pre-initialized requestor instances (with options setup) for injection into subsystems etc.
+The API is modelled after the standard node `request` library. It works with promises or callbacks and allows you to create pre-initialized requestor instances (with options setup) for injection into subsystems etc.
 
 Simple GET of a single page
 ```javascript
@@ -63,6 +63,22 @@ Or
 const requestorTemplate = ghrequestor.defaults({ authorization: 'token <my token here>' });
 requestorTemplate.get(url);
 ```
+
+## Retries
+
+Retry logic is provided by [requestretry](https://www.npmjs.com/package/requestretry), which means you can pass `maxAttempts` and `retryDelay` as options:
+
+```javascript
+ghrequestor.get(url, { maxAttempts: 2, retryDelay: 1000 });
+```
+
+Alternatively, you can pass in a `retryStrategy` (or `delayStrategy`). For example:
+
+```javascript
+ghrequestor.get(url, { retryStrategy: ghrequestor.RetryStrategies.HTTPOrNetworkError });
+```
+
+These are the same as [those of the underlying library](https://github.com/FGRibreau/node-request-retry/tree/v1.12.0/strategies/).
 
 ## Logging
 
